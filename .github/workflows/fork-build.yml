@@ -54,7 +54,8 @@ jobs:
       # missing, so it has to exist - but it must not declare the credential keys:
       # a key with an empty value makes the plugin emit an unquoted `= ;` into
       # BuildConfig. Left empty, app/build.gradle.kts fills those fields with "".
-      run: echo '# Fork build: no credentials, see fork-build.yml' > local.properties
+      run: |
+        echo '# Fork build - no credentials, see fork-build.yml' > local.properties
 
     - name: Patch applicationId baked into prebuilt native libraries
       if: ${{ env.APP_ID != 'app.gamenative' }}
