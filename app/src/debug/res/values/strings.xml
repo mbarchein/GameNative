@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Debug builds of this fork are meant to sit next to an official install
+         (see the forkApplicationId property in app/build.gradle.kts), so give
+         them a launcher label that tells the two apart. -->
+    <string name="app_name">GameNative Fork</string>
+</resources>

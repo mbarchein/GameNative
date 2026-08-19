@@ -188,18 +188,22 @@ public class BionicProgramLauncherComponent extends GuestProgramLauncherComponen
 
         final int MAX_PLAYERS = 4;
 
+        // Resolve the imagefs from the context instead of hardcoding the package data dir,
+        // so builds with a different applicationId use their own files.
+        File gamepadMemDir = new File(ImageFs.find(environment.getContext()).getRootDir(), "tmp");
+
         // Get the number of enabled players directly from ControllerManager.
         for (int i = 0; i < MAX_PLAYERS; i++) {
-            String memPath;
+            String memName;
             if (i == 0) {
                 // Player 1 uses the original, non-numbered path that is known to work.
-                memPath = "/data/data/app.gamenative/files/imagefs/tmp/gamepad.mem";
+                memName = "gamepad.mem";
             } else {
                 // Players 2, 3, 4 use a 1-based index.
-                memPath = "/data/data/app.gamenative/files/imagefs/tmp/gamepad" + i + ".mem";
+                memName = "gamepad" + i + ".mem";
             }
 
-            File memFile = new File(memPath);
+            File memFile = new File(gamepadMemDir, memName);
             memFile.getParentFile().mkdirs();
             try (RandomAccessFile raf = new RandomAccessFile(memFile, "rw")) {
                 raf.setLength(64);
@@ -312,6 +316,9 @@ public class BionicProgramLauncherComponent extends GuestProgramLauncherComponen
         envVars.put("LD_PRELOAD", ld_preload);
         envVars.put("EVSHIM_WINE", 1);
         envVars.put("EVSHIM_SHM_NAME", "controller-shm0");
+        // libevshim.so otherwise falls back to a hardcoded package data dir; point it at
+        // this install's files dir so a different applicationId keeps working.
+        envVars.put("EVSHIM_BASE_PATH", context.getFilesDir().getAbsolutePath());
 
         // Check for specific shared memory libraries
 //        if ((new File(imageFs.getLibDir(), "libandroid-sysvshm.so")).exists()){

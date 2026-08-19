@@ -20,6 +20,20 @@ val keystoreProperties: Properties? = if (keystorePropertiesFile.exists()) {
     }
 } else null
 
+// Optional fork build: pass -PforkApplicationId=<id> to build an app that can be
+// installed next to the official one. The id must not be longer than
+// "app.gamenative", so that tools/fork_appid_patch.py can rewrite the data
+// directory path baked into the prebuilt native libraries in place.
+val forkApplicationId: String? = (project.findProperty("forkApplicationId") as String?)
+    ?.trim()
+    ?.takeIf { it.isNotEmpty() }
+if (forkApplicationId != null && forkApplicationId.length > "app.gamenative".length) {
+    throw GradleException(
+        "forkApplicationId '$forkApplicationId' is longer than 'app.gamenative'; " +
+            "the prebuilt native libraries cannot be patched for it.",
+    )
+}
+
 // Add PostHog API key and host as build-time variables
 val posthogApiKey: String = project.findProperty("POSTHOG_API_KEY") as String? ?: System.getenv("POSTHOG_API_KEY") ?: ""
 val posthogHost: String = project.findProperty("POSTHOG_HOST") as String? ?: System.getenv("POSTHOG_HOST") ?: "https://us.i.posthog.com"
@@ -56,7 +70,8 @@ android {
     }
 
     defaultConfig {
-        applicationId = "app.gamenative"
+        applicationId = forkApplicationId ?: "app.gamenative"
+        if (forkApplicationId != null) versionNameSuffix = "-fork"
 
         minSdk = 26
 

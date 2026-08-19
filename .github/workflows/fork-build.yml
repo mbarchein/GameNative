@@ -1,15 +1,37 @@
 name: Fork build (debug APK)
 
-# Fork-friendly build: produces an unsigned-for-release, debug-signed APK.
-# It needs no repository secrets (PostHog / SteamGridDB / cloud project number
-# all fall back to empty strings in app/build.gradle.kts).
+# Fork-friendly build: produces a debug-signed APK that needs no repository secrets
+# (PostHog / SteamGridDB / cloud project number all fall back to empty strings in
+# app/build.gradle.kts).
+#
+# The APK is built with its own applicationId so it can be installed next to an
+# official GameNative release. tools/fork_appid_patch.py rewrites the applicationId
+# that some prebuilt native libraries hardcode, which is why the id must not be
+# longer than "app.gamenative".
 
 on:
   workflow_dispatch:
+    inputs:
+      application_id:
+        description: "applicationId for the build (max 14 chars, so the prebuilt libs can be patched)"
+        required: false
+        default: 'app.gnfork.dev'
+      flavor:
+        description: "Product flavor to build"
+        required: false
+        default: 'Legacy'
+        type: choice
+        options:
+          - Legacy
+          - Modern
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
+    env:
+      APP_ID: ${{ inputs.application_id }}
+      FLAVOR: ${{ inputs.flavor }}
 
     steps:
     - uses: actions/checkout@v4
@@ -27,13 +49,28 @@ jobs:
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v4
 
-    - name: Build legacy debug APK
-      run: ./gradlew :app:assembleLegacyDebug --no-daemon --stacktrace
+    - name: Patch applicationId baked into prebuilt native libraries
+      if: ${{ env.APP_ID != 'app.gamenative' }}
+      run: python3 tools/fork_appid_patch.py "$APP_ID"
+
+    - name: Build debug APK
+      run: |
+        ARGS=""
+        if [ "$APP_ID" != "app.gamenative" ]; then
+          ARGS="-PforkApplicationId=$APP_ID"
+        fi
+        ./gradlew ":app:assemble${FLAVOR}Debug" $ARGS --no-daemon --stacktrace
+
+    - name: Locate APK
+      id: apk
+      run: |
+        FLAVOR_DIR="$(printf '%s' "$FLAVOR" | tr '[:upper:]' '[:lower:]')"
+        echo "dir=app/build/outputs/apk/${FLAVOR_DIR}/debug" >> "$GITHUB_OUTPUT"
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
-        name: gamenative-legacy-debug
-        path: app/build/outputs/apk/legacy/debug/*.apk
+        name: gamenative-fork-${{ inputs.flavor }}-debug
+        path: ${{ steps.apk.outputs.dir }}/*.apk
         if-no-files-found: error
         retention-days: 14
