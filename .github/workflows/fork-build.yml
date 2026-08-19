@@ -49,6 +49,17 @@ jobs:
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v4
 
+    - name: Inject dummy credentials
+      # The secrets Gradle plugin fails the build when local.properties is missing.
+      # A fork build ships no telemetry or API credentials, so the values stay empty.
+      run: |
+        cat <<'EOF' > local.properties
+        POSTHOG_API_KEY=
+        POSTHOG_HOST=https://us.i.posthog.com
+        STEAMGRIDDB_API_KEY=
+        CLOUD_PROJECT_NUMBER=
+        EOF
+
     - name: Patch applicationId baked into prebuilt native libraries
       if: ${{ env.APP_ID != 'app.gamenative' }}
       run: python3 tools/fork_appid_patch.py "$APP_ID"
